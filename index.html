@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Estimation Manager</title>
+<style>
+:root{--bg:#f3f1ea;--surface:#fff;--ink:#241f12;--muted:#6b6450;--line:#e0dac6;--accent:#8a5a00;--accent-ink:#fff;--danger:#b3372f;--soft:#f5ead0;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a170e;--surface:#252115;--ink:#f3eddb;--muted:#b5ab8d;--line:#3a3422;--accent:#f0b94d;--accent-ink:#2e1f00;--danger:#ef7b73;--soft:#3b3218}}
+:root[data-theme="dark"]{--bg:#1a170e;--surface:#252115;--ink:#f3eddb;--muted:#b5ab8d;--line:#3a3422;--accent:#f0b94d;--accent-ink:#2e1f00;--danger:#ef7b73;--soft:#3b3218}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:1.9rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 22px}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:120px}
+.stat b{display:block;font-size:1.5rem;line-height:1.2}
+.stat span{color:var(--muted);font-size:.85rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:18px}
+.panel h2{font-size:1.05rem;margin:0 0 12px}
+details.panel summary{cursor:pointer;font-weight:600}
+form{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-items:end}
+label{display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--muted);min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0;width:100%}
+input[readonly]{opacity:.8;font-weight:600}
+.btns{display:flex;gap:8px;grid-column:1/-1}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.del{color:var(--danger)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.err{color:var(--danger);font-size:.88rem;min-height:1.3em;margin:8px 0 0}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tools input{flex:1;min-width:160px;width:auto}
+.tools select{width:auto}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:1500px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);font-size:.9rem;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:.82rem;white-space:nowrap}
+td.n{text-align:right;white-space:nowrap}
+th.n{text-align:right}
+td.id{color:var(--muted)}
+td.d{color:var(--muted);white-space:nowrap}
+.fk{color:var(--muted);font-size:.8rem;display:block}
+.act{display:flex;gap:6px}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+.schema th,.schema td{font-size:.88rem}
+code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:.85rem}
+.mini{margin-top:12px;min-width:0}
+.mini td{padding:6px 8px}
+.cf{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.cf label{width:240px;max-width:100%}
+@media (prefers-reduced-motion:no-preference){tr.flash{animation:fl 1.1s}@keyframes fl{from{background:var(--soft)}to{background:transparent}}}
+</style>
+</head>
+<body>
+<main>
+<h1>Estimation Manager</h1>
+<p class="sub">Create cost estimations for customers and link each one to a company (chain). Data is stored in the browser on this device.</p>
+
+<div class="stats" id="stats"></div>
+
+<section class="panel">
+<h2 id="formTitle">Add an estimation</h2>
+<form id="f" novalidate>
+<label>chain_id (company)<select id="chain"></select></label>
+<label>group_name (max 50)<input id="grp" maxlength="50" autocomplete="off" placeholder="e.g. Retail Group"></label>
+<label>brand_name (max 50)<input id="brd" maxlength="50" autocomplete="off" placeholder="e.g. Fresh Basket"></label>
+<label>zone_name (max 50)<input id="zn" maxlength="50" autocomplete="off" placeholder="e.g. North Zone"></label>
+<label>service (max 100)<input id="svc" maxlength="100" autocomplete="off" placeholder="e.g. Shop signage installation"></label>
+<label>qty<input id="qty" type="number" min="1" step="1" placeholder="Units"></label>
+<label>cost_per_unit<input id="cpu" type="number" min="0" step="0.01" placeholder="0.00"></label>
+<label>total_cost (qty × cost_per_unit)<input id="tot" readonly value="0.00"></label>
+<label>delivery_date<input id="dd" type="date"></label>
+<label>delivery_details (max 100)<input id="dt" maxlength="100" autocomplete="off" placeholder="e.g. Deliver to store back gate"></label>
+<div class="btns"><button class="primary" type="submit" id="save">Add estimation</button><button type="button" id="cancel" hidden>Cancel edit</button></div>
+</form>
+<p class="err" id="err" role="alert"></p>
+</section>
+
+<details class="panel">
+<summary>Companies (chain table) used for chain_id</summary>
+<div class="cf">
+<label>company_name<input id="cname" maxlength="255" autocomplete="off" placeholder="Company name"></label>
+<button class="primary" type="button" id="cadd">Add company</button>
+</div>
+<p class="err" id="cerr" role="alert"></p>
+<div class="wrap"><table class="schema mini"><thead><tr><th>chain_id</th><th>company_name</th><th>Estimations</th><th></th></tr></thead><tbody id="crows"></tbody></table></div>
+</details>
+
+<section class="panel">
+<div class="tools">
+<input id="q" placeholder="Search by service, group, brand or zone" aria-label="Search estimations">
+<select id="fc" aria-label="Filter by company"></select>
+</div>
+<div class="wrap"><table>
+<thead><tr><th>estimated_id</th><th>chain_id</th><th>group_name</th><th>brand_name</th><th>zone_name</th><th>service</th><th class="n">qty</th><th class="n">cost_per_unit</th><th class="n">total_cost</th><th>delivery_date</th><th>delivery_details</th><th>created_at</th><th>updated_at</th><th>Actions</th></tr></thead>
+<tbody id="rows"></tbody>
+</table></div>
+<div class="empty" id="empty" hidden>No estimations match. Add an estimation above to get started.</div>
+</section>
+
+<section class="panel">
+<h2>Table design: Estimation</h2>
+<div class="wrap"><table class="schema" style="min-width:560px">
+<thead><tr><th>Column Name</th><th>Datatype</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>estimated_id</code></td><td>int (PK)</td><td>Unique identifier of the estimation. Auto-numbered here.</td></tr>
+<tr><td><code>chain_id</code></td><td>int (FK)</td><td>References chain_id from the chain table. Links the estimation with the chain.</td></tr>
+<tr><td><code>group_name</code></td><td>varchar(50)</td><td>Stores the group name.</td></tr>
+<tr><td><code>brand_name</code></td><td>varchar(50)</td><td>Stores the brand name.</td></tr>
+<tr><td><code>zone_name</code></td><td>varchar(50)</td><td>Stores the zone name.</td></tr>
+<tr><td><code>service</code></td><td>varchar(100)</td><td>Stores the service details.</td></tr>
+<tr><td><code>qty</code></td><td>int</td><td>Stores the total quantity or units of that service.</td></tr>
+<tr><td><code>cost_per_unit</code></td><td>float</td><td>Stores the cost of each unit.</td></tr>
+<tr><td><code>total_cost</code></td><td>float</td><td>Stores the estimated amount (qty × cost_per_unit).</td></tr>
+<tr><td><code>delivery_date</code></td><td>date</td><td>Stores the delivery date.</td></tr>
+<tr><td><code>delivery_details</code></td><td>varchar(100)</td><td>Stores the delivery details.</td></tr>
+<tr><td><code>created_at</code></td><td>datetime</td><td>Date and time the estimation was first created.</td></tr>
+<tr><td><code>updated_at</code></td><td>datetime</td><td>Date and time the estimation was last updated.</td></tr>
+</tbody></table></div>
+</section>
+</main>
+
+<script>
+(function(){
+var KEY="estimation_table_v1", ests=[], chains=[], nextE=1, nextC=1, editId=null, flashId=null;
+var $=function(i){return document.getElementById(i)};
+
+function load(){
+  try{var r=localStorage.getItem(KEY); if(r){var o=JSON.parse(r); ests=o.ests||[]; chains=o.chains||[]; nextE=o.nextE||1; nextC=o.nextC||1; return;}}catch(e){}
+  var t=Date.now();
+  chains=[{chain_id:1,company_name:"Sharma Traders Pvt Ltd"},{chain_id:2,company_name:"Nagpur Fresh Mart"}];
+  nextC=3;
+  ests=[{estimated_id:1,chain_id:2,group_name:"Retail Group",brand_name:"Fresh Basket",zone_name:"North Zone",service:"Shop signage installation",qty:4,cost_per_unit:12500,total_cost:50000,delivery_date:"2026-11-15",delivery_details:"Deliver to store back gate",created_at:t,updated_at:t},
+        {estimated_id:2,chain_id:1,group_name:"Textile Group",brand_name:"Sharma Textiles",zone_name:"Central Zone",service:"Display rack setup",qty:10,cost_per_unit:3200.5,total_cost:32005,delivery_date:"2026-12-01",delivery_details:"Call before delivery",created_at:t,updated_at:t}];
+  nextE=3;
+}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({ests:ests,chains:chains,nextE:nextE,nextC:nextC}));}catch(e){}}
+function p2(n){return String(n).padStart(2,"0")}
+function fmt(t){var d=new Date(t);return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())+" "+p2(d.getHours())+":"+p2(d.getMinutes())+":"+p2(d.getSeconds());}
+function money(n){return Number(n).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fe(id){return ests.filter(function(g){return g.estimated_id===id})[0]}
+function fc(id){return chains.filter(function(c){return c.chain_id===id})[0]}
+function opts(first){return first+chains.map(function(c){return '<option value="'+c.chain_id+'">'+c.chain_id+' – '+esc(c.company_name)+'</option>'}).join("")}
+
+function calc(){var t=(+$("qty").value||0)*(+$("cpu").value||0);$("tot").value=money(Math.round(t*100)/100);return Math.round(t*100)/100;}
+
+function renderChains(){
+  var sel=$("chain").value, fsel=$("fc").value;
+  $("chain").innerHTML=opts('<option value="">Select a company</option>');
+  $("fc").innerHTML=opts('<option value="all">All companies</option>');
+  $("chain").value=sel; if(!$("chain").value)$("chain").value="";
+  $("fc").value=fsel||"all"; if(!$("fc").value)$("fc").value="all";
+  $("crows").innerHTML=chains.map(function(c){
+    var n=ests.filter(function(b){return b.chain_id===c.chain_id}).length;
+    return '<tr><td>'+c.chain_id+'</td><td>'+esc(c.company_name)+'</td><td>'+n+'</td><td><button class="del" data-c="'+c.chain_id+'">Delete</button></td></tr>';
+  }).join("");
+}
+function render(){
+  var q=$("q").value.trim().toLowerCase(), c=$("fc").value;
+  var list=ests.filter(function(g){
+    var hay=(g.service+" "+g.group_name+" "+g.brand_name+" "+g.zone_name).toLowerCase();
+    return (!q||hay.indexOf(q)>-1)&&(c==="all"||String(g.chain_id)===c);
+  });
+  $("rows").innerHTML=list.map(function(g){
+    var co=fc(g.chain_id);
+    return '<tr'+(g.estimated_id===flashId?' class="flash"':'')+'><td class="id">'+g.estimated_id+'</td>'
+    +'<td>'+g.chain_id+'<span class="fk">'+(co?esc(co.company_name):"")+'</span></td>'
+    +'<td>'+esc(g.group_name)+'</td><td>'+esc(g.brand_name)+'</td><td>'+esc(g.zone_name)+'</td><td>'+esc(g.service)+'</td>'
+    +'<td class="n">'+g.qty+'</td><td class="n">'+money(g.cost_per_unit)+'</td><td class="n"><b>'+money(g.total_cost)+'</b></td>'
+    +'<td class="d">'+esc(g.delivery_date)+'</td><td>'+esc(g.delivery_details)+'</td>'
+    +'<td class="d">'+fmt(g.created_at)+'</td><td class="d">'+fmt(g.updated_at)+'</td>'
+    +'<td><div class="act"><button data-a="edit" data-id="'+g.estimated_id+'">Edit</button><button class="del" data-a="del" data-id="'+g.estimated_id+'">Delete</button></div></td></tr>';
+  }).join("");
+  $("empty").hidden=list.length>0;
+  var sum=ests.reduce(function(s,g){return s+g.total_cost},0);
+  $("stats").innerHTML='<div class="stat"><b>'+ests.length+'</b><span>Estimations</span></div><div class="stat"><b>₹'+money(sum)+'</b><span>Total estimated cost</span></div><div class="stat"><b>'+chains.length+'</b><span>Companies</span></div>';
+}
+function resetForm(){editId=null;["grp","brd","zn","svc","qty","cpu","dd","dt"].forEach(function(i){$(i).value=""});$("chain").value="";$("tot").value="0.00";$("save").textContent="Add estimation";$("formTitle").textContent="Add an estimation";$("cancel").hidden=true;$("err").textContent="";}
+
+$("qty").addEventListener("input",calc);
+$("cpu").addEventListener("input",calc);
+$("f").addEventListener("submit",function(e){
+  e.preventDefault();
+  var cid=+$("chain").value, err=$("err");
+  var v={group_name:$("grp").value.trim(),brand_name:$("brd").value.trim(),zone_name:$("zn").value.trim(),service:$("svc").value.trim(),delivery_details:$("dt").value.trim(),delivery_date:$("dd").value};
+  var qty=parseInt($("qty").value,10), cpu=parseFloat($("cpu").value);
+  if(!cid||!fc(cid)){err.textContent="Select the company for this estimation. Add a company below if the list is empty.";return;}
+  if(!v.group_name){err.textContent="Enter the group name.";return;}
+  if(!v.brand_name){err.textContent="Enter the brand name.";return;}
+  if(!v.zone_name){err.textContent="Enter the zone name.";return;}
+  if(!v.service){err.textContent="Enter the service details.";return;}
+  if(!(qty>0)){err.textContent="Enter a quantity of 1 or more.";return;}
+  if(isNaN(cpu)||cpu<0){err.textContent="Enter the cost per unit.";return;}
+  if(!v.delivery_date){err.textContent="Select the delivery date.";return;}
+  if(!v.delivery_details){err.textContent="Enter the delivery details.";return;}
+  var now=Date.now(), tot=Math.round(qty*cpu*100)/100;
+  if(editId){var g=fe(editId);g.chain_id=cid;g.group_name=v.group_name;g.brand_name=v.brand_name;g.zone_name=v.zone_name;g.service=v.service;g.qty=qty;g.cost_per_unit=cpu;g.total_cost=tot;g.delivery_date=v.delivery_date;g.delivery_details=v.delivery_details;g.updated_at=now;flashId=g.estimated_id;}
+  else{ests.push({estimated_id:nextE,chain_id:cid,group_name:v.group_name,brand_name:v.brand_name,zone_name:v.zone_name,service:v.service,qty:qty,cost_per_unit:cpu,total_cost:tot,delivery_date:v.delivery_date,delivery_details:v.delivery_details,created_at:now,updated_at:now});flashId=nextE;nextE++;}
+  persist();resetForm();renderChains();render();
+});
+$("cadd").addEventListener("click",function(){
+  var n=$("cname").value.trim(), err=$("cerr");
+  if(!n){err.textContent="Enter the company name.";return;}
+  if(chains.some(function(c){return c.company_name.toLowerCase()===n.toLowerCase()})){err.textContent="This company already exists.";return;}
+  chains.push({chain_id:nextC++,company_name:n});$("cname").value="";err.textContent="";
+  persist();renderChains();render();
+});
+$("crows").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-c]");if(!b)return;
+  var id=+b.getAttribute("data-c");
+  if(ests.some(function(x){return x.chain_id===id})){$("cerr").textContent="This company still has estimations. Delete or move them first.";return;}
+  chains=chains.filter(function(c){return c.chain_id!==id});$("cerr").textContent="";
+  persist();renderChains();render();
+});
+$("cancel").addEventListener("click",resetForm);
+$("q").addEventListener("input",render);
+$("fc").addEventListener("change",render);
+$("rows").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-a]");if(!b)return;
+  var id=+b.getAttribute("data-id"),g=fe(id),a=b.getAttribute("data-a");
+  if(a==="edit"){editId=id;$("chain").value=String(g.chain_id);$("grp").value=g.group_name;$("brd").value=g.brand_name;$("zn").value=g.zone_name;$("svc").value=g.service;$("qty").value=g.qty;$("cpu").value=g.cost_per_unit;$("dd").value=g.delivery_date;$("dt").value=g.delivery_details;calc();$("save").textContent="Save changes";$("formTitle").textContent="Edit estimation #"+id;$("cancel").hidden=false;$("err").textContent="";$("svc").focus();window.scrollTo({top:0,behavior:"smooth"});}
+  else if(a==="del"){if(confirm('Delete estimation #'+id+'?')){ests=ests.filter(function(x){return x.estimated_id!==id});if(editId===id)resetForm();persist();renderChains();render();}}
+});
+load();renderChains();render();
+})();
+</script>
+</body>
+</html>
